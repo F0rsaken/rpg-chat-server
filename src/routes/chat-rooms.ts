@@ -19,34 +19,6 @@ export default new class ChatRooms extends Endpoint {
         }
     }
 
-    public getRouter() {
-        return this.router;
-    }
-
-    private defineRoutes() {
-        this.router.post('/connect', this.connect.bind(this));
-        this.router.get('/details/:roomId', this.roomDetails.bind(this));
-    }
-
-    private connect(req: Request, res: Response): void {
-        // console.log(req.body);
-        let { roomName, password, userId, token } = req.body as ConnectBody;
-
-        if (Users.validateUser(userId, token)) {
-            let room = this.chatRooms.find(val => val.name === roomName);
-            if (!room) {
-                res.status(400).json({ error: "Room don't exist1" });
-            } else if (password !== room.password) {
-                res.status(400).json({ error: 'Room password is invalid!' })
-            } else {
-                room.currentUsers.push({ id: userId, name: Users.getUserName(userId) });
-                res.json({ message: "Connected!", address: `ws://localhost:${room.port}`, roomId: room.id });
-            }
-        } else {
-            res.status(400).json({ error: "Token is invalid!" });
-        }
-    }
-
     private initRoom(room: ChatRoom) {
         const ws = new Server({ port: 0 });
 
@@ -77,14 +49,52 @@ export default new class ChatRooms extends Endpoint {
                 console.log(error);
                 console.log(error.message);
             })
-
-            // socket.on('close', (code, reason) => {
-
-            // });
         });
 
         room.webSocket = ws;
         room.port = (<AddressInfo>ws.address()).port;
+    }
+
+    public getRouter() {
+        return this.router;
+    }
+
+    private defineRoutes() {
+        this.router.post('/connect', this.connect.bind(this));
+        this.router.get('/details/:roomId', this.roomDetails.bind(this));
+        this.router.post('/disconnect', this.disconnet.bind(this));
+    }
+
+    private connect(req: Request, res: Response): void {
+        // console.log(req.body);
+        let { roomName, password, userId, token } = req.body as ConnectBody;
+
+        if (Users.validateUser(userId, token)) {
+            let room = this.chatRooms.find(val => val.name === roomName);
+            if (!room) {
+                res.status(400).json({ error: "Room don't exist1" });
+            } else if (password !== room.password) {
+                res.status(400).json({ error: 'Room password is invalid!' })
+            } else {
+                room.currentUsers.push({ id: userId, name: Users.getUserName(userId) });
+                res.json({ message: "Connected!", address: `ws://localhost:${room.port}`, roomId: room.id });
+            }
+        } else {
+            res.status(400).json({ error: "Token is invalid!" });
+        }
+    }
+
+    private disconnet(req: Request, res: Response): void {
+        let { userId, roomId } = (req.body as disconnetRequest);
+        
+        if (Users.logoutUser(+userId)) {
+            let room = this.chatRooms.find(r => r.id === +roomId);
+            let ind = room.currentUsers.findIndex(user => user.id === +userId);
+            if (ind !== -1) room.currentUsers.splice(ind, 1);
+            res.json({ message: 'Success!' });
+        } else {
+            res.status(400).json({ error: 'No user with given Id!' });
+        }
     }
 
     private roomDetails(req: Request, res: Response): void {
@@ -132,4 +142,9 @@ enum MSG_TYPES {
     clientJoin = 0,
     clientLeft = 1,
     message = 2
+}
+
+interface disconnetRequest {
+    userId: string;
+    roomId: string;
 }

@@ -44,6 +44,16 @@ export default new class Users extends Endpoint {
         let user = this.users.find(val => val.id === id);
         return user ? user.name : '';
     }
+
+    public logoutUser(id: number): boolean {
+        for (let i in this.users) {
+            if (this.users[i].id === id) {
+                this.users.splice(+i, 1);
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 export interface User {
